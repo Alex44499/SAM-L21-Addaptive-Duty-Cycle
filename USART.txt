@@ -1,0 +1,161 @@
+#include <asf.h>
+#include <delay.h>
+#define TCC_MODE_OTMX_DTI
+
+//Create a module software instance structure for the USART module
+//to store the USART driver state while it is in use.
+struct usart_module usart_instance;
+
+//Create module software instance structures for DMA resources
+//to store the DMA resource state while it is in use.
+struct dma_resource usart_dma_resource_rx;
+struct dma_resource usart_dma_resource_tx;
+
+// Everything that comes from the PC goes into input_buffer
+#define INPUT_BUF_SIZE 1
+static uint16_t input_buffer[INPUT_BUF_SIZE];
+
+// Everything that goes from the MCU to the PC goes into this buffer
+#define OUTPUT_BUF_SIZE 2
+static uint16_t output_buffer[OUTPUT_BUF_SIZE];
+bool g_data_valid = false;
+ 
+//Create DMA transfer descriptors for RX/TX
+COMPILER_ALIGNED(16)
+DmacDescriptor example_descriptor_rx;
+DmacDescriptor example_descriptor_tx;
+
+// Configure DMA
+// Create a callback function of receiver done
+static void transfer_done_rx( const struct dma_resource* const resource ) {
+	g_data_valid = true;
+	dma_start_transfer_job(&usart_dma_resource_rx);
+}
+
+//Create a DMA resource configuration structure
+static void configure_dma_resource_rx(struct dma_resource *resource)
+{
+	struct dma_resource_config config;
+	
+	//Initialize the DMA resource configuration struct with the module's default values
+	dma_get_config_defaults(&config);
+	
+	//Set extra configurations for the DMA resource.
+	//It is using peripheral trigger, SERCOM Tx empty trigger and
+	//trigger causes a beat transfer in this example
+	config.peripheral_trigger = SERCOM3_DMAC_ID_RX;
+	config.trigger_action = DMA_TRIGGER_ACTION_BEAT;
+	
+	//Allocate a DMA resource with the configurations
+	dma_allocate(resource, &config);
+}
+
+// Initialize the DMA transfer descriptor configuration struct with the module's default values.
+static void setup_transfer_descriptor_rx(DmacDescriptor *descriptor)
+{
+	struct dma_descriptor_config descriptor_config;
+	dma_descriptor_get_config_defaults(&descriptor_config);
+	
+	//Set the specific parameters for a DMA transfer with transfer size, source address, destination address
+	descriptor_config.beat_size = DMA_BEAT_SIZE_HWORD;
+	descriptor_config.src_increment_enable = false;
+	descriptor_config.block_transfer_count = INPUT_BUF_SIZE;
+	descriptor_config.destination_address = (uint32_t)input_buffer + sizeof(input_buffer);
+	descriptor_config.source_address = (uint32_t)(&usart_instance.hw->USART.DATA.reg);
+	
+	//Create the DMA transfer descriptor
+	dma_descriptor_create(descriptor, &descriptor_config);
+}
+
+
+static void configure_dma_resource_tx(struct dma_resource *resource)
+{
+	//Create a DMA resource configuration structure for tx
+	struct dma_resource_config config;
+	
+	//Initialize the DMA resource configuration struct with the module's default values
+	dma_get_config_defaults(&config);
+	config.peripheral_trigger = SERCOM3_DMAC_ID_TX;
+	config.trigger_action = DMA_TRIGGER_ACTION_BEAT;
+	dma_allocate(resource, &config);
+}
+static void setup_transfer_descriptor_tx(DmacDescriptor *descriptor)
+{
+	struct dma_descriptor_config descriptor_config;
+	dma_descriptor_get_config_defaults(&descriptor_config);
+	descriptor_config.beat_size = DMA_BEAT_SIZE_HWORD;
+	descriptor_config.dst_increment_enable = false;
+	descriptor_config.block_transfer_count = OUTPUT_BUF_SIZE;
+	descriptor_config.source_address = (uint32_t)output_buffer + sizeof(output_buffer);
+	descriptor_config.destination_address = (uint32_t)(&usart_instance.hw->USART.DATA.reg);
+	dma_descriptor_create(descriptor, &descriptor_config);
+}
+
+// CONFIGURE USART
+// Create a USART module configuration struct, which can be filled out to adjust the configuration of
+// a physical USART peripheral
+static void configure_usart(void)
+{
+	struct usart_config config_usart;
+	
+	//Initialize the USART configuration struct with the module's default values
+	
+	usart_get_config_defaults(&config_usart);
+	config_usart.baudrate = 9600;
+	config_usart.mux_setting = EDBG_CDC_SERCOM_MUX_SETTING;
+	config_usart.pinmux_pad0 = EDBG_CDC_SERCOM_PINMUX_PAD0;
+	config_usart.pinmux_pad1 = EDBG_CDC_SERCOM_PINMUX_PAD1;
+	config_usart.pinmux_pad2 = EDBG_CDC_SERCOM_PINMUX_PAD2;
+	config_usart.pinmux_pad3 = EDBG_CDC_SERCOM_PINMUX_PAD3;
+	
+	//Configure the USART module with the desired settings, retrying while the driver is busy
+	//until the configuration is stressfully set.
+	while (usart_init(&usart_instance, EDBG_CDC_MODULE, &config_usart) != STATUS_OK);
+	
+	//Enable the USART module.
+	usart_enable(&usart_instance);
+}
+
+int main (void) {
+	struct port_config config_port_pin;
+	port_get_config_defaults(&config_port_pin);
+	config_port_pin.direction = PORT_PIN_DIR_OUTPUT;
+	port_pin_set_config(LED_0_PIN, &config_port_pin);	
+	
+	configure_usart();
+	configure_dma_resource_rx(&usart_dma_resource_rx);
+	configure_dma_resource_tx(&usart_dma_resource_tx);
+	
+	setup_transfer_descriptor_rx(&example_descriptor_rx);
+	setup_transfer_descriptor_tx(&example_descriptor_tx);
+	
+	dma_add_descriptor(&usart_dma_resource_rx, &example_descriptor_rx);
+	dma_add_descriptor(&usart_dma_resource_tx, &example_descriptor_tx);
+	
+	dma_register_callback(&usart_dma_resource_rx, transfer_done_rx, DMA_CALLBACK_TRANSFER_DONE);
+	
+	dma_enable_callback(&usart_dma_resource_rx, DMA_CALLBACK_TRANSFER_DONE);
+	dma_enable_callback(&usart_dma_resource_tx, DMA_CALLBACK_TRANSFER_DONE);
+		
+	dma_start_transfer_job(&usart_dma_resource_rx);
+	while (true) {
+		if (g_data_valid) {
+			g_data_valid = false;
+			output_buffer[0] = 'o';
+			output_buffer[1] = '\n';
+		
+			if (input_buffer[0] == 'u') {
+				port_pin_toggle_output_level(LED_0_PIN);	
+			} else if (input_buffer[0] == 'd') {
+				port_pin_toggle_output_level(LED_0_PIN);	
+			} else if (input_buffer[0] == 's') {
+				port_pin_toggle_output_level(LED_0_PIN);
+			} else if (input_buffer[0] == 'r') {
+				port_pin_toggle_output_level(LED_0_PIN);
+			} else {
+				output_buffer[0] = 'e';						
+			}
+			dma_start_transfer_job(&usart_dma_resource_tx);		
+		}
+	}
+}
