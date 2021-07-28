@@ -1,5 +1,7 @@
 #include <asf.h>
-#include <delay.h>#define TCC_MODE_OTMX_DTI
+#include <delay.h>
+#define TCC_MODE_OTMX_DTI
+
 
 static float measure_voltage(struct adc_module *adc, enum adc_positive_input analog_ch, float ref_voltage){
 	
@@ -32,7 +34,7 @@ int main (void) {
 	/* Initialize the PWM                                                   */
 	/* We're using TCC0 pin PA04 and TCC1 pin PA06                          */
 	/************************************************************************/
-	uint8_t pwm_period = 112;
+	uint8_t pwm_period = 210;
 	
 	struct tcc_config tcc0_cfg;
 	tcc_get_config_defaults(&tcc0_cfg, TCC0);
@@ -71,10 +73,42 @@ int main (void) {
 	tcc1_cfg.pins.wave_out_pin[1]        = PIN_PA07E_TCC1_WO1;
 	tcc1_cfg.pins.wave_out_pin_mux[1]    = MUX_PA07E_TCC1_WO1;
 	
+	
+	
+	
+	
 	struct tcc_module tcc1_instance;
 	tcc_init(&tcc1_instance, TCC1, &tcc1_cfg);
 	tcc1_instance.hw->WAVE.bit.POL0 = !tcc1_instance.hw->WAVE.bit.POL0;
 	tcc1_instance.hw->WAVE.bit.POL1 = !tcc1_instance.hw->WAVE.bit.POL1;
+	
+	
+	
+	
+	
+	
+	
+	
+	/************************************************************************/
+	/* Initialize the Real time clock                                       */
+	/* We use this to keep track of seconds that have passed since power on */
+	/************************************************************************/
+	struct rtc_module rtc_instance;
+	struct rtc_count_config config_rtc_count;
+		
+	rtc_count_get_config_defaults(&config_rtc_count);
+	config_rtc_count.prescaler = RTC_COUNT_PRESCALER_DIV_1;
+	config_rtc_count.mode = RTC_COUNT_MODE_16BIT;
+	config_rtc_count.compare_values[0] = 500; // 500 = 1s
+	rtc_count_init(&rtc_instance, RTC, &config_rtc_count);
+	rtc_count_enable(&rtc_instance);
+	rtc_count_set_period(&rtc_instance, 1000);
+		
+	// Enable LED as output
+	ioport_init();
+	ioport_set_pin_dir(LED0_GPIO, IOPORT_DIR_OUTPUT);
+	//ioport_set_pin_level(LED0_GPIO, false);
+
 	
 	
 	/************************************************************************/
@@ -106,19 +140,43 @@ int main (void) {
 	tcc0_instance.hw->CTRLA.reg |= TCC_CTRLA_ENABLE;
 	tcc1_instance.hw->CTRLA.reg |= TCC_CTRLA_ENABLE;
 
-
+	
+	
 	uint8_t duty_cycle2;
 	uint8_t duty_cycle;
 	int8_t offset = 10; //66 Tested offset of a half a period
+	uint16_t seconds_from_start = 0;
+	ioport_set_pin_level(LED0_GPIO, false);
 	float measured_voltage1;
 	float measured_voltage2;
+	float measure_voltage3;
+
 	bool offset_timer_zero = false;
 	
 	while (1) {
 		measured_voltage1 = measure_voltage(&adc0_instance, ADC_POSITIVE_INPUT_PIN1, 2.0);
 		measured_voltage2 = measure_voltage(&adc0_instance, ADC_POSITIVE_INPUT_PIN15, 2.0);
-	    duty_cycle =( (measured_voltage1 / (measured_voltage1 + measured_voltage2)) * pwm_period)/2;
-		duty_cycle2 = duty_cycle ;
+		
+		// Increase the time
+		if (rtc_count_is_compare_match(&rtc_instance, RTC_COUNT_COMPARE_0)){
+			seconds_from_start += 1;
+			//ioport_toggle_pin_level(LED0_GPIO);
+			rtc_count_clear_compare_match(&rtc_instance, RTC_COUNT_COMPARE_0);
+		}
+		
+		if (seconds_from_start <= 380){
+			
+			duty_cycle = (measured_voltage1 / (measured_voltage1 + measured_voltage2)) * 195;
+			
+			} 
+			else if ((seconds_from_start >= 380)&&(seconds_from_start <= 950)){
+				duty_cycle = (measured_voltage2 / (measured_voltage1 + measured_voltage2)) * 195;
+			}
+			else if ((seconds_from_start >= 950)&&(seconds_from_start <= 1350)){
+				duty_cycle = (measured_voltage1 / (measured_voltage1 + measured_voltage2)) * 195;
+			}
+ 
+		
 		
 		
 		TCC0->CC[0].reg = duty_cycle;
@@ -131,6 +189,9 @@ int main (void) {
 
 		TCC0->COUNT.reg = 0;
 		TCC1->COUNT.reg = offset;
-		 
+		
+		
 	}
+	
 }
+

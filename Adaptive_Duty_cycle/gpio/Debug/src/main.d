@@ -131,13 +131,17 @@ src/main.d src/main.o: ../src/main.c ../src/asf.h \
  ../src/ASF/sam0/drivers/system/reset/reset_sam_l/reset.h \
  ../src/ASF/sam0/drivers/adc/adc_sam_l_c/adc_feature.h \
  ../src/ASF/common2/services/delay/delay.h \
- ../src/ASF/common2/services/delay/sam0/cycle_counter.h \
+ ../src/ASF/common2/services/delay/sam0/systick_counter.h \
  ../src/ASF/common/boards/board.h \
  ../src/ASF/sam0/boards/saml21_xplained_pro_b/saml21_xplained_pro.h \
- ../src/config/conf_board.h ../src/ASF/sam0/drivers/port/port.h \
+ ../src/config/conf_board.h ../src/ASF/common/services/ioport/ioport.h \
+ ../src/ASF/common/services/ioport/sam0/ioport.h \
+ ../src/ASF/sam0/drivers/port/port.h \
+ ../src/ASF/sam0/drivers/rtc/rtc_count.h ../src/config/conf_clocks.h \
+ ../src/ASF/sam0/drivers/rtc/rtc_tamper.h \
  ../src/ASF/sam0/drivers/system/interrupt/system_interrupt.h \
  ../src/ASF/sam0/drivers/system/interrupt/system_interrupt_saml21/system_interrupt_features.h \
- ../src/ASF/sam0/drivers/tcc/tcc.h
+ ../src/ASF/sam0/drivers/tc/tc.h ../src/ASF/sam0/drivers/tcc/tcc.h
 
 ../src/asf.h:
 
@@ -409,7 +413,7 @@ c:\program\ files\ (x86)\atmel\studio\7.0\toolchain\arm\arm-gnu-toolchain\arm-no
 
 ../src/ASF/common2/services/delay/delay.h:
 
-../src/ASF/common2/services/delay/sam0/cycle_counter.h:
+../src/ASF/common2/services/delay/sam0/systick_counter.h:
 
 ../src/ASF/common/boards/board.h:
 
@@ -417,10 +421,22 @@ c:\program\ files\ (x86)\atmel\studio\7.0\toolchain\arm\arm-gnu-toolchain\arm-no
 
 ../src/config/conf_board.h:
 
+../src/ASF/common/services/ioport/ioport.h:
+
+../src/ASF/common/services/ioport/sam0/ioport.h:
+
 ../src/ASF/sam0/drivers/port/port.h:
+
+../src/ASF/sam0/drivers/rtc/rtc_count.h:
+
+../src/config/conf_clocks.h:
+
+../src/ASF/sam0/drivers/rtc/rtc_tamper.h:
 
 ../src/ASF/sam0/drivers/system/interrupt/system_interrupt.h:
 
 ../src/ASF/sam0/drivers/system/interrupt/system_interrupt_saml21/system_interrupt_features.h:
+
+../src/ASF/sam0/drivers/tc/tc.h:
 
 ../src/ASF/sam0/drivers/tcc/tcc.h:

@@ -65,6 +65,9 @@
 // From module: Generic board support
 #include <board.h>
 
+// From module: IOPORT - General purpose I/O service
+#include <ioport.h>
+
 // From module: Interrupt management - SAM implementation
 #include <interrupt.h>
 
@@ -73,6 +76,10 @@
 
 // From module: Part identification macros
 #include <parts.h>
+
+// From module: RTC - Real Time Counter in Count Mode (Polled APIs)
+#include <rtc_count.h>
+#include <rtc_tamper.h>
 
 // From module: SYSTEM - Clock Management for SAML21
 #include <clock.h>
@@ -92,6 +99,9 @@
 
 // From module: SYSTEM - Reset Management for SAM L21
 #include <reset.h>
+
+// From module: TC - Timer Counter (Polled APIs)
+#include <tc.h>
 
 // From module: TCC - Timer Counter for Control Applications (Polled APIs)
 #include <tcc.h>
