@@ -5,4 +5,4 @@
 
 2. Addaptive D & USART 
  - Measure voltage & Change Duty cycle & Send commands through USART
-
+3. Add final version for ATMEL SAM L21
